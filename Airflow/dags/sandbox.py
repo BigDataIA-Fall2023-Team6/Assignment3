@@ -9,6 +9,18 @@ import PyPDF2
 import pandas as pd
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.operators.dagrun_operator import TriggerDagRunOperator
+from airflow.models import Variable
+
+user_input ={
+    "pdf_urls" : [
+                "https://www.sec.gov/files/form1.pdf",
+                "https://www.sec.gov/files/form10.pdf",
+                "https://www.sec.gov/files/form11-k.pdf",
+                "https://www.sec.gov/files/form8-a.pdf",
+                "https://www.sec.gov/files/formn-54c.pdf"
+            ]
+}
 
 class CustomPythonOperator(BaseOperator):
     @apply_defaults
@@ -20,21 +32,33 @@ class CustomPythonOperator(BaseOperator):
         return self.python_callable(context)
     
 GPT_MODEL = "gpt-3.5-turbo"
-api_key = os.getenv('OPENAI_KEY')  
+api_key = os.getenv('OPENAI_KEY')  # Replace with your actual OpenAI API key
 openai.api_key = api_key
 
-def extract_text_from_pdfs(pdf_urls):
-    pdf_texts = []
+def user_prompt(**kwargs):
+    # Display a form to get user input for PDF URLs
+    return input("Enter PDF URLs separated by commas: ").split(',')
+
+def should_continue(**kwargs):
+    user_input = kwargs['task_instance'].xcom_pull(task_ids='user_input_task')
+    if user_input:
+        return 'continue_task'
+    return 'end_task'
+
+
+def extract_text_from_pdfs(**kwargs):
+    pdf_urls = kwargs["params"]["pdf_urls"]
+    pdf_texts = []  # Initialize an empty list to store the extracted text
     for pdf_url in pdf_urls:
         try:
             response = requests.get(pdf_url)
             response.raise_for_status()
 
-           
+            # Open the PDF file from the response content
             with open('temp.pdf', 'wb') as pdf_file:
                 pdf_file.write(response.content)
 
-            
+            # Extract text from the PDF
             pdf_text = ""
             with open('temp.pdf', 'rb') as pdf_file:
                 pdf_reader = PyPDF2.PdfReader(pdf_file)
@@ -75,10 +99,10 @@ def generate_text_embeddings(**kwargs):
     pdf_texts=kwargs['ti'].xcom_pull(task_ids='extract_text_from_pdfs')
     
     print(pdf_texts)
-    
+    # Initialize data structures to store the data
     data = []
 
-    
+    # Process the extracted text, chunk it, and generate embeddings
     for i, text in enumerate(pdf_texts):
         print(f"Extracted texts:",pdf_texts)
         chunks = []
@@ -97,13 +121,13 @@ def generate_text_embeddings(**kwargs):
             chunks.append(current_chunk)
         
         
-                
+                # Print chunks once for each PDF
         print(f"Chunks for PDF {i + 1}:", chunks)    
         text_chunks = chunks
         print(chunks)
         embeddings = [openai_embeddings(chunk) for chunk in text_chunks]
         
-       
+        # Store the data
         for j, chunk in enumerate(text_chunks):
             data.append({
                 'PDF': i + 1,
@@ -112,7 +136,7 @@ def generate_text_embeddings(**kwargs):
                 'Embedding': embeddings[j]
             })
 
-    
+    # Create a DataFrame from the data
     df = pd.DataFrame(data)
     
     return df
@@ -130,21 +154,36 @@ dag = DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=60),
     tags=["pdf_processing"],
+    params= {
+            'pdf_urls': [
+                "https://www.sec.gov/files/form1.pdf",
+                "https://www.sec.gov/files/form10.pdf",
+                "https://www.sec.gov/files/form11-k.pdf",
+                "https://www.sec.gov/files/form8-a.pdf",
+                "https://www.sec.gov/files/formn-54c.pdf"
+            ]
+        }
 )
 
-pdf_urls = [
-    "https://www.sec.gov/files/form1.pdf",
-    "https://www.sec.gov/files/form10.pdf",
-    "https://www.sec.gov/files/form11-k.pdf",
-    "https://www.sec.gov/files/form8-a.pdf",
-    "https://www.sec.gov/files/formn-54c.pdf"
-]
+# pdf_urls = [
+#     "https://www.sec.gov/files/form1.pdf",
+#     "https://www.sec.gov/files/form10.pdf",
+#     "https://www.sec.gov/files/form11-k.pdf",
+#     "https://www.sec.gov/files/form8-a.pdf",
+#     "https://www.sec.gov/files/formn-54c.pdf"
+# ]
 
 
+
+
+
+# Task for extracting text from PDFs
 extract_text_task = PythonOperator(
     task_id="extract_text_from_pdfs",
     python_callable=extract_text_from_pdfs,
-    op_args=[pdf_urls],  # Pass the PDF URLs as arguments to the task
+    # op_args=[pdf_urls],
+    # op_kwargs={'pdf_urls': '{{ params.pdf_urls }}'},
+    provide_context=True,
     dag=dag,
 )
 # pdf_texts=[]
@@ -160,7 +199,7 @@ extract_text_task = PythonOperator(
 #     dag=dag,
 # )
 
-
+# Task for generating embeddings and saving to CSV
 generate_embeddings_task = PythonOperator(
     task_id="generate_embeddings_and_save_csv",
     python_callable=generate_text_embeddings,
@@ -168,7 +207,7 @@ generate_embeddings_task = PythonOperator(
     dag=dag,
 )
 
-
+# Task for saving data to CSV
 save_csv_task = PythonOperator(
     task_id="save_data_to_csv",
     python_callable=save_data_to_csv,
@@ -176,5 +215,5 @@ save_csv_task = PythonOperator(
     dag=dag,
 )
 
-
+# Set task dependencies
 extract_text_task >> generate_embeddings_task >> save_csv_task
