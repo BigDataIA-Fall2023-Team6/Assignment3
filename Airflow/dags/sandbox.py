@@ -12,16 +12,6 @@ from airflow.utils.decorators import apply_defaults
 from airflow.operators.dagrun_operator import TriggerDagRunOperator
 from airflow.models import Variable
 
-user_input ={
-    "pdf_urls" : [
-                "https://www.sec.gov/files/form1.pdf",
-                "https://www.sec.gov/files/form10.pdf",
-                "https://www.sec.gov/files/form11-k.pdf",
-                "https://www.sec.gov/files/form8-a.pdf",
-                "https://www.sec.gov/files/formn-54c.pdf"
-            ]
-}
-
 class CustomPythonOperator(BaseOperator):
     @apply_defaults
     def __init__(self, python_callable, *args, **kwargs):
