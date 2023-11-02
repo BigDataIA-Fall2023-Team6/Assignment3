@@ -48,7 +48,8 @@ def should_continue(**kwargs):
 
 def extract_text_from_pdfs(**kwargs):
     pdf_urls = kwargs["params"]["pdf_urls"]
-    pdf_texts = []  # Initialize an empty list to store the extracted text
+    pdf_texts = [] 
+    pdf_names = []# Initialize an empty list to store the extracted text
     for pdf_url in pdf_urls:
         try:
             response = requests.get(pdf_url)
@@ -61,7 +62,9 @@ def extract_text_from_pdfs(**kwargs):
             # Extract text from the PDF
             pdf_text = ""
             with open('temp.pdf', 'rb') as pdf_file:
+                
                 pdf_reader = PyPDF2.PdfReader(pdf_file)
+                pdf_names.append(pdf_url.split("/")[-1].split(".pdf")[0])
                 for page_num in range(len(pdf_reader.pages)):
                     page = pdf_reader.pages[page_num]
                     pdf_text += page.extract_text()
@@ -71,7 +74,7 @@ def extract_text_from_pdfs(**kwargs):
         except Exception as e:
             print(f"Error extracting text from {pdf_url}: {str(e)}")
     # print(f"Extracted texts from {pdf_url}: {str(e)}",pdf_texts)
-    return pdf_texts
+    return pdf_texts, pdf_names
 
 # def chunk_text(text, max_chunk_length=1200):
 #     chunks = []
@@ -96,7 +99,7 @@ def openai_embeddings(text, model="text-embedding-ada-002"):
 
 # def save_data_to_csv(**kwargs):
 def generate_text_embeddings(**kwargs):
-    pdf_texts=kwargs['ti'].xcom_pull(task_ids='extract_text_from_pdfs')
+    pdf_texts, pdf_names =kwargs['ti'].xcom_pull(task_ids='extract_text_from_pdfs')
     
     print(pdf_texts)
     # Initialize data structures to store the data
@@ -131,8 +134,9 @@ def generate_text_embeddings(**kwargs):
         for j, chunk in enumerate(text_chunks):
             data.append({
                 'PDF': i + 1,
-                'Chunk Number': j + 1,
-                'Chunk Text': chunk,
+                'PDF_Name': pdf_names[i],
+                'Chunk_Number': j + 1,
+                'Chunk_Text': chunk,
                 'Embedding': embeddings[j]
             })
 
