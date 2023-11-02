@@ -42,12 +42,13 @@ def insert_data_to_pinecone(**kwargs):
 
         # Create a dictionary with the 'metadata' field
         record = {
-            'id': str(row['PDF']) + '-' + str(row['Chunk Number']),  # Unique ID
+            'id': str(row['PDF']) + '-' + str(row['Chunk_Number']),  # Unique ID
             'values': embedding,  # Embedding as a list of floats
             'metadata': {
                 'PDF': row['PDF'],
-                'Chunk_Number': row['Chunk Number'],
-                'Chunk_Text': row['Chunk Text']
+                'PDF_Name': row['PDF_Name'],
+                'Chunk_Number': row['Chunk_Number'],
+                'Chunk_Text': row['Chunk_Text']
             }
         }
 
