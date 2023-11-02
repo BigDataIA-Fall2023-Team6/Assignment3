@@ -299,6 +299,14 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+  
+  backend:
+    container_name: fastapi_backend
+    build:
+      context: ../Fast_API/.
+    ports:
+      - 8000:8000
+    restart: always
 
 volumes:
   postgres-db-volume:

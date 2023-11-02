@@ -1,11 +1,10 @@
-FROM python:3.11
-
-
+FROM python:3.10.12 
+# Enter your own python Environment
 
 WORKDIR  /app
 
 COPY requirements.txt ./
-COPY .env ./
+# COPY .env ./
 COPY pdf_data.csv /app/pdf_data.csv
 RUN pip install -r requirements.txt
 RUN pip install uvicorn gunicorn 
