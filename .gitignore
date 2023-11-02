@@ -162,3 +162,5 @@ cython_debug/
 #Abhishek's VE
 .VE
 .FastAPIVE
+.fastapi
+.streamlit
