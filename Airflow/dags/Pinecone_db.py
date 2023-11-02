@@ -9,31 +9,10 @@ import pinecone
 import pandas as pd
 from ast import literal_eval
 from typing import List, Iterator
+import numpy as np
 
 
-# Models a simple batch generator that make chunks out of an input DataFrame
-# class BatchGenerator:
-    
-    
-#     def __init__(self, batch_size: int = 10) -> None:
-#         self.batch_size = batch_size
-    
-#     # Makes chunks out of an input DataFrame
-#     def to_batches(self, df: pd.DataFrame) -> Iterator[pd.DataFrame]:
-#         splits = self.splits_num(df.shape[0])
-#         if splits <= 1:
-#             yield df
-#         else:
-#             for chunk in np.array_split(df, splits):
-#                 yield chunk
 
-#     # Determines how many chunks DataFrame contains
-#     def splits_num(self, elements: int) -> int:
-#         return round(elements / self.batch_size)
-    
-#     __call__ = to_batches
-
-# df_batcher = BatchGenerator(300)
 
 def initialize_pineconedb():
     
@@ -41,45 +20,54 @@ def initialize_pineconedb():
     pinecone.init(api_key=Pinecone_API_KEYS, environment="gcp-starter")
 
 def insert_data_to_pinecone(**kwargs):
+# Read the CSV file into a Pandas DataFrame
+
     df = pd.read_csv('/opt/airflow/Embeddings/pdf_data.csv')
+    # embedding = literal_eval(row['Embedding'])
+    Pinecone_API_KEYS = os.getenv('PINECONE_API_KEY')
+    pinecone.init(api_key=Pinecone_API_KEYS, environment="gcp-starter")
+    index_name = 'openaiembeddings00'
+    index = pinecone.Index(index_name=index_name)
+
     
-    df['Embedding'] = df.Embedding.apply(literal_eval)
-    df['vector_id'] = range(len(df))
-    PINECONE_INDEX_NAME = "openai-embeddings"
-    data = df.to_dict(orient='records')  
+    from ast import literal_eval
+    # Create a Pinecone index
+    index = pinecone.Index(index_name=index_name)
 
+    records = []
 
-    pinecone_index = pinecone.Index(index_name=PINECONE_INDEX_NAME)
+    for _, row in df.iterrows():
+        # Convert the 'Embedding' string to a list
+        embedding = literal_eval(row['Embedding'])
 
+        # Create a dictionary with the 'metadata' field
+        record = {
+            'id': str(row['PDF']) + '-' + str(row['Chunk Number']),  # Unique ID
+            'values': embedding,  # Embedding as a list of floats
+            'metadata': {
+                'PDF': row['PDF'],
+                'Chunk_Number': row['Chunk Number'],
+                'Chunk_Text': row['Chunk Text']
+            }
+        }
 
-    pinecone_index.upsert(records=data)
+        records.append(record)  # Append the record to the 'records' list
+
+    # Upsert the records into the index
+    index.upsert(vectors=records)
+
 
 
 def create_pinecone_index():
     
     Pinecone_API_KEYS = os.getenv('PINECONE_API_KEY')
-
-    # pinecone.init(api_key=Pinecone_API_KEYS, environment="gcp-starter")
-    # PINECONE_INDEX_NAME = "OpenAI_Embeddings"
-    # try:
-    #     pinecone.create_index(PINECONE_INDEX_NAME,dimension=4096, metric="cosine")
-    #     print(f"Created Pinecone index: {PINECONE_INDEX_NAME}")
-    # except pinecone.ApiException as e:
-    #     if "already exists" in str(e):
-    #         print(f"Pinecone index {PINECONE_INDEX_NAME} already exists.")
-    #     else:
-    #         raise e
-
-    Pinecone_API_KEYS = os.getenv('PINECONE_API_KEY')
     pinecone.init(api_key=Pinecone_API_KEYS, environment="gcp-starter")
-    index_name = 'openaiembeddings'
-
-
+    index_name = 'openaiembeddings00'
     if index_name in pinecone.list_indexes():
         pinecone.delete_index(index_name)
         
 
-    pinecone.create_index(name='openaiembeddings', dimension = 4096, metric="cosine")
+    pinecone.create_index(name=index_name, dimension = 1536, metric="cosine")
     
     
         
