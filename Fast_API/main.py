@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import Annotated, List
 import pandas as pd
 from scipy.spatial import distance
 import ast
@@ -13,6 +13,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import pinecone
 
 load_dotenv()
 
@@ -103,15 +104,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), conn = Depends(c
         raise credentials_exception
     
 # Register endpoint
-@app.post("/register", response_model=Token)
+@app.post("/register")
 async def register_user(form_data: OAuth2PasswordRequestForm = Depends(), conn = Depends(connect_to_db)):
     username = form_data.username
     password = form_data.password
     hashed_password = pwd_context.hash(password)
     query = "INSERT INTO login_cred (username, password) VALUES ($1, $2) ON CONFLICT DO NOTHING"
     await conn.execute(query, username, hashed_password)
-    access_token = create_access_token(data={"sub": username})
-    return {"access_token": access_token, "token_type": "Registered Successfully"}
+    # access_token = create_access_token(data={"sub": username})
+    # return {"access_token": access_token, "token_type": "Registered Successfully"}
+    return {"message": "Signup successful"}
 
 
 # Login endpoint
