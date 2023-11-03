@@ -76,22 +76,6 @@ def extract_text_from_pdfs(**kwargs):
     # print(f"Extracted texts from {pdf_url}: {str(e)}",pdf_texts)
     return pdf_texts, pdf_names
 
-# def chunk_text(text, max_chunk_length=1200):
-#     chunks = []
-#     current_chunk = ""
-#     current_length = 0
-#     for paragraph in text.split("\n"):
-#         if current_length + len(paragraph) <= max_chunk_length:
-#             current_chunk += paragraph + "\n"
-#             current_length += len(paragraph)
-#         else:
-#             chunks.append(current_chunk)
-#             current_chunk = paragraph + "\n"
-#             current_length = len(paragraph)
-#     if current_chunk:
-#         chunks.append(current_chunk)
-#     return chunks
-
 def openai_embeddings(text, model="text-embedding-ada-002"):
     
     response = openai.Embedding.create(model=model, input=text)
@@ -168,18 +152,6 @@ dag = DAG(
             ]
         }
 )
-
-# pdf_urls = [
-#     "https://www.sec.gov/files/form1.pdf",
-#     "https://www.sec.gov/files/form10.pdf",
-#     "https://www.sec.gov/files/form11-k.pdf",
-#     "https://www.sec.gov/files/form8-a.pdf",
-#     "https://www.sec.gov/files/formn-54c.pdf"
-# ]
-
-
-
-
 
 # Task for extracting text from PDFs
 extract_text_task = PythonOperator(
