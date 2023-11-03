@@ -14,12 +14,22 @@ def login_user(username, password):
     response = requests.post(f"{BASE_URL}/login", data=payload)
     return response
 
-def get_embeddings(token):
-    headers = {"Authorization": f"Bearer {token}"}
-    response = requests.get(f"{BASE_URL}/embeddings", headers=headers)
-    return response
+# def get_embeddings(token):
+#     headers = {"Authorization": f"Bearer {token}"}
+#     response = requests.get(f"{BASE_URL}/embeddings", headers=headers)
+#     return response
 
-
+def getPDFnames():
+    try:
+        response = requests.get(f"{BASE_URL}/unique_pdf_names")
+        response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+        unique_pdf_names = response.json()
+        return unique_pdf_names
+    except requests.exceptions.RequestException as e:
+        # Handle any errors that occur during the request
+        print(e)
+        return ["Error fetching PDF names"]
+    
 def main():
     menu = ["Login", "Register"]
     choice = st.sidebar.selectbox("Menu", menu)
@@ -40,25 +50,13 @@ def main():
                 st.title("User Dashboard")
                 st.subheader("JWT Access Token")
                 st.write(f"Received JWT Token: {jwt_token}")
+
+                unique_pdf_names = getPDFnames()
+                pdf_name = st.selectbox('Select a PDF name', unique_pdf_names)
                 
-                # Fetch and display the list of embeddings
-                embeddings_response = get_embeddings(jwt_token)
-                if embeddings_response.status_code == 200:
-                    embeddings = embeddings_response.json()
-                    selected_embedding = st.selectbox("Select Embedding", embeddings)
-                    
-                    # Input question related to the selected embedding
-                    question = st.text_input("Ask a question")
-                    st.button("Submit Query.")
-                    # if st.button("Get Answer"):
-                    #     answer_response = ask_question(jwt_token, selected_embedding, question)
-                    #     if answer_response.status_code == 200:
-                    #         answer = answer_response.json().get("answer")
-                    #         st.write("Answer:", answer)
-                    #     else:
-                    #         st.error("Failed to get the answer.")
-                else:
-                    st.error("Failed to retrieve embeddings.")
+                question = st.text_input("Ask a question")
+                st.button("Submit Query.")
+               
             else:
                 st.error("Invalid credentials")
 
