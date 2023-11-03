@@ -227,6 +227,10 @@ from typing import List
 class Query(BaseModel):  # Define a Pydantic model to properly parse the incoming JSON
     query: str
 
+# class QueryFil(BaseModel):  # Define a Pydantic model to properly parse the incoming JSON
+#     query: str
+#     pdf_name:str
+
 # Initialize Pinecone
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 env = "gcp-starter"
@@ -281,12 +285,50 @@ async def query_text(query: Query):
         )
         
         # Assuming we want to return the first match's Chunk_Text
-        if query_result['matches']:
-            chunk_text = query_result['matches'][0]['metadata']['Chunk_Text']
-            return chunk_text
-            # return {"chunk_text": chunk_text}
-        else:
-            raise HTTPException(status_code=404, detail="No match found")
+        # if query_result['matches']:
+        #     chunk_text = query_result['matches'][0]['metadata']['Chunk_Text']
+        #     return chunk_text
+        #     # return {"chunk_text": chunk_text}
+        # else:
+        #     raise HTTPException(status_code=404, detail="No match found")
+        
+        metadata_dict = {match['id']: match['metadata'] for match in query_result['matches']}
+        return metadata_dict
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+########################### Filtered Search #################################
+class QueryFil(BaseModel):
+    query: str
+    pdf_name: str
+
+# Initialize Pinecone and OpenAI (make sure you've done this appropriately)
+
+@app.post("/query_text_filtered")
+async def query_text_filter(data: QueryFil):
+    try:
+        # Create the text embedding
+        embedding_response = openai.Embedding.create(
+            input=data.query,  # Directly use data.query
+            model=EMBEDDING_MODEL
+        )
+        embedding = embedding_response["data"][0]['embedding']
+
+        # Query Pinecone with the generated embedding
+        query_result = index.query(
+            vector=embedding,  # Make sure this is the correct parameter name for your Pinecone client
+            filter={"PDF_Name": {"$eq": data.pdf_name}},
+            top_k=1,
+            include_metadata=True,
+            get_score=True
+        )
+
+        first_match = query_result['matches'][0]
+        return first_match
+        
+        # metadata_dict = {match['id']: match['metadata'] for match in query_result['matches']}
+        # return metadata_dict
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
