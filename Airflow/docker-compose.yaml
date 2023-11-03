@@ -304,8 +304,22 @@ services:
     container_name: fastapi_backend
     build:
       context: ../Fast_API/.
+    env_file:
+      - ../Fast_API/.env
     ports:
       - 8000:8000
+    restart: always
+  
+  streamlit:
+    container_name: streamlit_App
+    build:
+      context: ../Streamlit/.
+    env_file:
+      - ../Streamlit/.env
+    ports:
+      - 8090:8090
+    depends_on:
+      - backend
     restart: always
 
 volumes:
