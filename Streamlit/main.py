@@ -5,8 +5,6 @@ import os
 # Base URL for the FastAPI backend
 BASE_URL = "http://127.0.0.1:8000"
 
-
-
 def register_user(username, password):
     payload = {"username": username, "password": password}
     response = requests.post(f"{BASE_URL}/register", data=payload)
@@ -67,34 +65,7 @@ def main():
                 st.title("User Dashboard")
                 st.subheader("JWT Access Token")
                 st.write(f"Received JWT Token: {jwt_token}")
-            
-        
-                unique_pdf_names = getPDFnames()
-                options = ["Select All"] + unique_pdf_names
-                pdf_name = st.selectbox('Select a PDF name', options, index=0)
 
-                Question = st.text_input("Enter your query here:")
-
-                if pdf_name == "Select All":
-                    submit = st.button("Search All")
-                    if submit:
-                        results = get_query_results(Question)
-                        if results is not None:
-                            st.write(results)
-                
-                else:
-                    Filter = st.button("Filter Search")
-                    if Filter:
-                        results = get_query_results_filter(Question,pdf_name)
-                        if results is not None:
-                            st.write(results)
-                    
-                # Question = st.text_input("Enter your query here:")
-                # Filter = st.button("Filter Search")
-                # if Filter:
-                #     results = get_query_results_filter(Question,pdf_name)
-                #     if results is not None:
-                #         st.write(results)
             else:
                 st.error("Invalid credentials")
         
@@ -117,25 +88,6 @@ def main():
                 results = get_query_results_filter(Question,pdf_name)
                 if results is not None:
                     st.write(results)
-
-
-        # unique_pdf_names = getPDFnames()
-        # pdf_name = st.radio('Select a PDF name', unique_pdf_names)
-
-        # Question = st.text_input("Enter your query here:")
-        # # submit = st.button("Search")
-        # Filter = st.button("Filter Search")
-
-
-        # if submit:
-        #     results = get_query_results(Question)
-        #     if results is not None:
-        #         st.write(results)
-        
-        # if Filter:
-        #     results = get_query_results_filter(Question,pdf_name)
-        #     if results is not None:
-        #         st.write(results)
 
     elif choice == "Register":
         st.title("User Registration")
