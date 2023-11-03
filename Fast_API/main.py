@@ -32,80 +32,6 @@ GPT_MODEL = "gpt-3.5-turbo"
 api_key = os.environ.get('API_KEY')  # Replace with your actual OpenAI API key
 openai.api_key = api_key
 
-# Load the CSV file with embeddings
-embeddings_file_path = 'pdf_data.csv'  # Update with the path to your CSV file
-df = pd.read_csv(embeddings_file_path)
-
-# Convert the embeddings from string to list
-df['Embedding'] = df['Embedding'].apply(ast.literal_eval)
-
-
-def num_tokens(text):
-    tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-    encoding = tokenizer.encode(text, add_special_tokens=False)
-    return len(encoding)
-
-# Function to calculate cosine similarity
-def cosine_similarity(embedding1, embedding2):
-    return 1 - distance.cosine(embedding1, embedding2)
-
-# Define a search function
-def strings_ranked_by_relatedness(query, df, relatedness_fn=cosine_similarity, top_n=100):
-    query_embedding = generate_text_embeddings(query)  # Implement this function using the OpenAI Text Embedding API
-    strings_and_relatednesses = [
-        (row['Chunk Text'], relatedness_fn(query_embedding, row['Embedding']))
-        for _, row in df.iterrows()
-    ]
-    strings_and_relatednesses.sort(key=lambda x: x[1], reverse=True)
-    strings, relatednesses = zip(*strings_and_relatednesses)
-    return strings[:top_n], relatednesses[:top_n]
-
-# Define a function to generate embeddings from text using OpenAI Text Embedding API
-def generate_text_embeddings(text, model="text-embedding-ada-002"):
-    response = openai.Embedding.create(model=model, input=text)
-    return response['data'][0]['embedding']
-
-token_budget = 4096 - 500  # Adjust the token budget as needed
-# Function to create a query message from the user's question
-def query_message(query, df, token_budget):
-    strings, relatednesses = strings_ranked_by_relatedness(query, df)
-    introduction = 'Use the below PDFs on the SEC forms to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
-    question = f'\n\nQuestion: {query}'
-    message = introduction
-
-    # Process each section separately
-    for string in strings:
-        # Split the content into smaller sections, e.g., paragraphs
-        sections = string.split('\n\n')  # You can use a more appropriate separator
-        
-        for section in sections:
-            next_section = f'\n\nSection:\n"""\n{section}\n"""'
-            if num_tokens(message + next_section + question) > token_budget:
-                break
-            else:
-                message += next_section
-
-    # return message
-    return message + question
-
-# Function to answer questions using GPT
-def ask(query, df, GPT_MODEL, token_budget, print_message=False):
-    message = query_message(query, df, token_budget=token_budget)
-    if print_message:
-        # print(message)
-        messages = [
-            {"role": "system", "content": "You answer questions about the SEC pdfs"},
-            {"role": "user", "content": message},
-        ]
-        response = openai.ChatCompletion.create(
-            model=GPT_MODEL,
-            messages=messages,
-            temperature=0
-        )
-        response_message = response["choices"][0]["message"]["content"]
-        # answer = response_message.split("Section:\n")[0]
-    return response_message
-
 class User(BaseModel):
     username: str
     password: str
@@ -204,20 +130,6 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), conn = De
 async def embeddings(current_user: User = Depends(get_current_user)):
     return {"message": "This is a secured endpoint", "user": current_user.username}
 
-
-# FastAPI route to answer questions
-class Question(BaseModel):
-    query: str
-
-class Answer(BaseModel):
-    answer: str
-
-@app.post("/ask", response_model=Answer)
-def get_answer(question: Question):
-    response = ask(question.query, df, GPT_MODEL, token_budget=4096 - 500,print_message=True)  # Adjust token budget as needed
-    return {"answer": response}
-
-
 ############################################ Fetching Data from Pinecone for Streamlit Display ####################################
 from fastapi import FastAPI
 import os
@@ -226,10 +138,6 @@ from typing import List
 
 class Query(BaseModel):  # Define a Pydantic model to properly parse the incoming JSON
     query: str
-
-# class QueryFil(BaseModel):  # Define a Pydantic model to properly parse the incoming JSON
-#     query: str
-#     pdf_name:str
 
 # Initialize Pinecone
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
@@ -262,7 +170,7 @@ async def get_unique_pdf_names():
     
     return unique_pdf_names
 
-########### Extracting Context from PDF ###################
+############################################################################ Extracting Context from PDF ###################
 
 EMBEDDING_MODEL = "text-embedding-ada-002"  # Replace with your actual model
 
@@ -284,26 +192,19 @@ async def query_text(query: Query):
             get_score = True
         )
         
-        # Assuming we want to return the first match's Chunk_Text
-        # if query_result['matches']:
-        #     chunk_text = query_result['matches'][0]['metadata']['Chunk_Text']
-        #     return chunk_text
-        #     # return {"chunk_text": chunk_text}
-        # else:
-        #     raise HTTPException(status_code=404, detail="No match found")
-        
-        metadata_dict = {match['id']: match['metadata'] for match in query_result['matches']}
-        return metadata_dict
-
+        first_match = query_result['matches'][0]
+        return {
+                'metadata': first_match['metadata'],
+                'score': first_match['score']
+            }
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-########################### Filtered Search #################################
+########################################################################## Filtered Search #################################
 class QueryFil(BaseModel):
     query: str
     pdf_name: str
-
-# Initialize Pinecone and OpenAI (make sure you've done this appropriately)
 
 @app.post("/query_text_filtered")
 async def query_text_filter(data: QueryFil):
@@ -325,10 +226,20 @@ async def query_text_filter(data: QueryFil):
         )
 
         first_match = query_result['matches'][0]
-        return first_match
-        
-        # metadata_dict = {match['id']: match['metadata'] for match in query_result['matches']}
-        # return metadata_dict
+    
+    # Return only the metadata and score of the first match
+        if first_match['score'] < 0.87:
+            return {"message": "Solution not present in Selected Form"}
+        else:
+            # Return only the metadata and score of the first match
+            return {
+                'metadata': first_match['metadata'],
+                'score': first_match['score']
+            }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+###########################################################################################################################
+
+
