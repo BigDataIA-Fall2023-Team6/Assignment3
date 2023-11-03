@@ -160,7 +160,10 @@ cython_debug/
 #.idea/
 
 #Abhishek's VE
-.VE
 .FastAPIVE
-.fastapi
 .streamlit
+pinecone.ipynb
+.VE
+
+
+

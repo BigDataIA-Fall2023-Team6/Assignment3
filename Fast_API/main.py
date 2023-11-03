@@ -5,7 +5,6 @@ from scipy.spatial import distance
 import ast
 import openai
 from transformers import GPT2TokenizerFast
-# from decouple import config
 import os
 import asyncpg
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -217,3 +216,42 @@ class Answer(BaseModel):
 def get_answer(question: Question):
     response = ask(question.query, df, GPT_MODEL, token_budget=4096 - 500,print_message=True)  # Adjust token budget as needed
     return {"answer": response}
+
+
+############################################ Fetching Data from Pinecone for Streamlit Display ####################################
+from fastapi import FastAPI
+import os
+import pinecone
+from typing import List
+
+# Initialize Pinecone
+PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
+env = "gcp-starter"
+pinecone.init(api_key=PINECONE_API_KEY, environment=env)
+
+# Create Pinecone index object
+index_name = "openaiembeddings00"
+index = pinecone.Index(index_name)
+
+
+@app.get("/unique_pdf_names", response_model=List[str])
+async def get_unique_pdf_names():
+    stats = index.describe_index_stats()
+    total_vector_count = stats['total_vector_count']
+    
+    unique_pdf_names = []
+    seen = set()
+    ids = [str(i) for i in range(0, total_vector_count)]
+
+    # Fetch the data and get unique PDF names
+    for vector_id in ids:
+        response = index.fetch([vector_id])
+        if vector_id in response['vectors']:
+            metadata = response['vectors'][vector_id]['metadata']
+            pdf_name = metadata.get('PDF_Name')
+            if pdf_name and pdf_name not in seen:
+                seen.add(pdf_name)
+                unique_pdf_names.append(pdf_name)
+    
+    return unique_pdf_names
+        
