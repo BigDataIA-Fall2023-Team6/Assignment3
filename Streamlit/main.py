@@ -14,11 +14,6 @@ def login_user(username, password):
     response = requests.post(f"{BASE_URL}/login", data=payload)
     return response
 
-# def get_embeddings(token):
-#     headers = {"Authorization": f"Bearer {token}"}
-#     response = requests.get(f"{BASE_URL}/embeddings", headers=headers)
-#     return response
-
 def getPDFnames():
     try:
         response = requests.get(f"{BASE_URL}/unique_pdf_names")
@@ -29,6 +24,16 @@ def getPDFnames():
         # Handle any errors that occur during the request
         print(e)
         return ["Error fetching PDF names"]
+
+# Function to get query results from FastAPI
+def get_query_results(query_string):
+    data_payload = {"query": query_string}
+    response = requests.post(f"{BASE_URL}/query_text", json=data_payload)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error(f"Failed to fetch results: {response.status_code} - {response.text}")
+        return None
     
 def main():
     menu = ["Login", "Register"]
@@ -50,15 +55,20 @@ def main():
                 st.title("User Dashboard")
                 st.subheader("JWT Access Token")
                 st.write(f"Received JWT Token: {jwt_token}")
-
+            
+        
                 unique_pdf_names = getPDFnames()
                 pdf_name = st.selectbox('Select a PDF name', unique_pdf_names)
-                
-                question = st.text_input("Ask a question")
-                st.button("Submit Query.")
-               
             else:
                 st.error("Invalid credentials")
+        
+        Question = st.text_input("Enter your query here:")
+        submit = st.button("Search")
+
+        if submit:
+            results = get_query_results(Question)
+            if results is not None:
+                st.write(results)
 
     elif choice == "Register":
         st.title("User Registration")

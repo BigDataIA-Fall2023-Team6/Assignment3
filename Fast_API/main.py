@@ -224,6 +224,9 @@ import os
 import pinecone
 from typing import List
 
+class Query(BaseModel):  # Define a Pydantic model to properly parse the incoming JSON
+    query: str
+
 # Initialize Pinecone
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 env = "gcp-starter"
@@ -254,4 +257,36 @@ async def get_unique_pdf_names():
                 unique_pdf_names.append(pdf_name)
     
     return unique_pdf_names
+
+########### Extracting Context from PDF ###################
+
+EMBEDDING_MODEL = "text-embedding-ada-002"  # Replace with your actual model
+
+@app.post("/query_text")
+async def query_text(query: Query):
+    try:
+        # Create the text embedding
+        embedding_response = openai.Embedding.create(
+            input=query.query,  # access 'query' field in Query model
+            model=EMBEDDING_MODEL
+        )
+        embedding = embedding_response["data"][0]['embedding']
+
+        # Query Pinecone with the generated embedding
+        query_result = index.query(
+            embedding,
+            top_k=1,
+            include_metadata = True, 
+            get_score = True
+        )
         
+        # Assuming we want to return the first match's Chunk_Text
+        if query_result['matches']:
+            chunk_text = query_result['matches'][0]['metadata']['Chunk_Text']
+            return chunk_text
+            # return {"chunk_text": chunk_text}
+        else:
+            raise HTTPException(status_code=404, detail="No match found")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
