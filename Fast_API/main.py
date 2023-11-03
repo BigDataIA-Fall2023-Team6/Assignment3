@@ -327,10 +327,14 @@ async def query_text_filter(data: QueryFil):
         first_match = query_result['matches'][0]
     
     # Return only the metadata and score of the first match
-        return {
-            'metadata': first_match['metadata'],
-            'score': first_match['score']
-        }
+        if first_match['score'] < 0.905:
+            return {"message": "Solution not present in Selected Form"}
+        else:
+            # Return only the metadata and score of the first match
+            return {
+                'metadata': first_match['metadata'],
+                'score': first_match['score']
+            }
         
         # metadata_dict = {match['id']: match['metadata'] for match in query_result['matches']}
         # return metadata_dict
