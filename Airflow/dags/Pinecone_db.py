@@ -56,6 +56,7 @@ def insert_data_to_pinecone(**kwargs):
 
     # Upsert the records into the index
     index.upsert(vectors=records)
+    
 
 
 
