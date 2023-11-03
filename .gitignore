@@ -167,3 +167,4 @@ pinecone.ipynb
 Fast_API/test.py
 .streamlit
 .fastapi
+.DS_Store
