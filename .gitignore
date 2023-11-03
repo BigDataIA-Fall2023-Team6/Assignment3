@@ -165,4 +165,5 @@ cython_debug/
 pinecone.ipynb
 .VE
 Fast_API/test.py
-
+.streamlit
+.fastapi
