@@ -34,7 +34,16 @@ def get_query_results(query_string):
     else:
         st.error(f"Failed to fetch results: {response.status_code} - {response.text}")
         return None
-    
+
+def get_query_results_filter(query_string, pdf_name):
+    data_payload = {"query": query_string, "pdf_name": pdf_name}
+    response = requests.post(f"{BASE_URL}/query_text_filtered", json=data_payload)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error(f"Failed to fetch results: {response.status_code} - {response.text}")
+        return None
+
 def main():
     menu = ["Login", "Register"]
     choice = st.sidebar.selectbox("Menu", menu)
@@ -59,16 +68,36 @@ def main():
         
                 unique_pdf_names = getPDFnames()
                 pdf_name = st.selectbox('Select a PDF name', unique_pdf_names)
+
+                Question = st.text_input("Enter your query here:")
+                Filter = st.button("Filter Search")
+                if Filter:
+                    results = get_query_results_filter(Question,pdf_name)
+                    if results is not None:
+                        st.write(results)
             else:
                 st.error("Invalid credentials")
         
-        Question = st.text_input("Enter your query here:")
-        submit = st.button("Search")
+        unique_pdf_names = getPDFnames()
+        pdf_name = st.radio('Select a PDF name', unique_pdf_names)
 
-        if submit:
-            results = get_query_results(Question)
+        Question = st.text_input("Enter your query here:")
+        # submit = st.button("Search")
+        Filter = st.button("Filter Search")
+
+
+        # if submit:
+        #     results = get_query_results(Question)
+        #     if results is not None:
+        #         st.write(results)
+        
+        if Filter:
+            results = get_query_results_filter(Question,pdf_name)
             if results is not None:
                 st.write(results)
+
+
+
 
     elif choice == "Register":
         st.title("User Registration")
