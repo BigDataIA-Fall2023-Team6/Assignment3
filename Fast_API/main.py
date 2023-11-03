@@ -5,7 +5,6 @@ from scipy.spatial import distance
 import ast
 import openai
 from transformers import GPT2TokenizerFast
-# from decouple import config
 import os
 import asyncpg
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -217,3 +216,77 @@ class Answer(BaseModel):
 def get_answer(question: Question):
     response = ask(question.query, df, GPT_MODEL, token_budget=4096 - 500,print_message=True)  # Adjust token budget as needed
     return {"answer": response}
+
+
+############################################ Fetching Data from Pinecone for Streamlit Display ####################################
+from fastapi import FastAPI
+import os
+import pinecone
+from typing import List
+
+class Query(BaseModel):  # Define a Pydantic model to properly parse the incoming JSON
+    query: str
+
+# Initialize Pinecone
+PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
+env = "gcp-starter"
+pinecone.init(api_key=PINECONE_API_KEY, environment=env)
+
+# Create Pinecone index object
+index_name = "openaiembeddings00"
+index = pinecone.Index(index_name)
+
+
+@app.get("/unique_pdf_names", response_model=List[str])
+async def get_unique_pdf_names():
+    stats = index.describe_index_stats()
+    total_vector_count = stats['total_vector_count']
+    
+    unique_pdf_names = []
+    seen = set()
+    ids = [str(i) for i in range(0, total_vector_count)]
+
+    # Fetch the data and get unique PDF names
+    for vector_id in ids:
+        response = index.fetch([vector_id])
+        if vector_id in response['vectors']:
+            metadata = response['vectors'][vector_id]['metadata']
+            pdf_name = metadata.get('PDF_Name')
+            if pdf_name and pdf_name not in seen:
+                seen.add(pdf_name)
+                unique_pdf_names.append(pdf_name)
+    
+    return unique_pdf_names
+
+########### Extracting Context from PDF ###################
+
+EMBEDDING_MODEL = "text-embedding-ada-002"  # Replace with your actual model
+
+@app.post("/query_text")
+async def query_text(query: Query):
+    try:
+        # Create the text embedding
+        embedding_response = openai.Embedding.create(
+            input=query.query,  # access 'query' field in Query model
+            model=EMBEDDING_MODEL
+        )
+        embedding = embedding_response["data"][0]['embedding']
+
+        # Query Pinecone with the generated embedding
+        query_result = index.query(
+            embedding,
+            top_k=1,
+            include_metadata = True, 
+            get_score = True
+        )
+        
+        # Assuming we want to return the first match's Chunk_Text
+        if query_result['matches']:
+            chunk_text = query_result['matches'][0]['metadata']['Chunk_Text']
+            return chunk_text
+            # return {"chunk_text": chunk_text}
+        else:
+            raise HTTPException(status_code=404, detail="No match found")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
