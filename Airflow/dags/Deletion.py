@@ -27,27 +27,12 @@ def delete_pinecone_index(**kwargs):
     # index_name = "openaiembeddings00"
     Pinecone_API_KEYS = os.getenv('PINECONE_API_KEY')
     pinecone.init(api_key=Pinecone_API_KEYS, environment="gcp-starter")
-    # index_name = 'openaiembeddings00'
-    index = pinecone.Index(index_name=index_name)
-    
-    df = pd.read_csv('/opt/airflow/Embeddings/pdf_data.csv')
-    
-    ids = [str(i) for i in range(0,len(df))]
-    
-   
-    # index.delete(str(ids))
-    # stats = index.describe_index_stats()
-    # total_vector_count = stats['total_vector_count']
-    
-    # ids = [str(i) for i in range(0, total_vector_count)]
-    
-    for vector_ids in ids:
-    # id =  "2"
-        index.delete(str(vector_ids))
+ 
+    if index_name in pinecone.list_indexes():
+        pinecone.delete_index(index_name)
+ 
     
     return None
-    
- 
     
 dag = DAG(
     dag_id="pinecone_index_deletion_dag",

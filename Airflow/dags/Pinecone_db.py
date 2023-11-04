@@ -53,6 +53,11 @@ def insert_data_to_pinecone(**kwargs):
         }
 
         records.append(record)  # Append the record to the 'records' list
+    
+    unique_pdf_names = df['PDF_Name'].unique()
+    with open('/opt/airflow/outputs/unique_pdf_names.txt', 'w') as file:
+        for name in unique_pdf_names:
+            file.write(f"{name}\n")
 
     # Upsert the records into the index
     index.upsert(vectors=records)
